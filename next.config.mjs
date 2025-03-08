@@ -21,6 +21,14 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://4293-105-163-157-14.ngrok-free.app/api/:path*',
+      },
+    ]
+  },
 }
 
 mergeConfig(nextConfig, userConfig)

@@ -9,12 +9,48 @@ export function SignInForm() {
   const { signIn } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
+  // Generate random username and email
+  const generateRandomUser = () => {
+    const randomString = Math.random().toString(36).substring(2, 8)
+    const username = `user_${randomString}`
+    const email = `${username}@example.com`
+    
+    return {
+      username,
+      email
+    }
+  }
+
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
     try {
-      await signIn("google")
+      // Generate random user data
+      const userData = generateRandomUser()
+      
+      // Make mock registration API call
+      const response = await fetch("https://b472-105-163-157-14.ngrok-free.app/api/users/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(userData)
+      })
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status: ${response.status}`)
+      }
+      
+      // Parse and store user data
+      const userInfo = await response.json()
+      console.log("User registered:", userInfo)
+      
+      // Store in localStorage for use in onboarding
+      localStorage.setItem("carbon-credits-user", JSON.stringify(userInfo))
+      
+      // Continue with normal sign-in flow
+      // await signIn("google")
     } catch (error) {
-      console.error("Google sign in failed:", error)
+      console.error("Registration/sign in failed:", error)
     } finally {
       setIsLoading(false)
     }

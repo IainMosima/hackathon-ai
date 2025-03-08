@@ -4,7 +4,7 @@ import type React from "react"
 
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/auth-provider"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Upload } from "lucide-react"
@@ -19,52 +19,19 @@ export function OnboardingForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [groundPhoto, setGroundPhoto] = useState<File | null>(null)
   const [satellitePhoto, setSatellitePhoto] = useState<File | null>(null)
+  const [signedUrls, setSignedUrls] = useState<any>(null)
 
-  const getSignedUrl = async (file: File, userId: string) => {
-    try {
-      const response = await fetch("/api/get-signed-url", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-          userId,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to get signed URL")
+  useEffect(() => {
+    // Get user data from localStorage if not available in context
+    const storedUser = localStorage.getItem("carbon-credits-user")
+    
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser)
+      if (parsedUser.upload_urls) {
+        setSignedUrls(parsedUser.upload_urls)
       }
-
-      return await response.json()
-    } catch (error) {
-      console.error("Error getting signed URL:", error)
-      throw error
     }
-  }
-
-  const uploadToS3 = async (file: File, signedUrl: string) => {
-    try {
-      const response = await fetch(signedUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type,
-        },
-        body: file,
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to upload to S3")
-      }
-
-      return true
-    } catch (error) {
-      console.error("Error uploading to S3:", error)
-      throw error
-    }
-  }
+  }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,33 +45,35 @@ export function OnboardingForm() {
       return
     }
 
+    if (!signedUrls) {
+      toast({
+        variant: "destructive",
+        title: "Missing signed URLs",
+        description: "Unable to upload photos. Please try signing in again.",
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      // Get signed URLs for both photos
-      const groundPhotoData = await getSignedUrl(groundPhoto, user?.id || "")
-      const satellitePhotoData = await getSignedUrl(satellitePhoto, user?.id || "")
-
-      // Upload photos to S3 using signed URLs
+      // Upload photos to S3 using signed URLs from registration
       await Promise.all([
-        uploadToS3(groundPhoto, groundPhotoData.signedUrl),
-        uploadToS3(satellitePhoto, satellitePhotoData.signedUrl),
+        uploadToS3(groundPhoto, signedUrls.ground_photo_signed),
+        uploadToS3(satellitePhoto, signedUrls.aerial_photo_signed),
       ])
 
-      // In a real app, you would save the S3 keys to your database
-      const groundPhotoKey = groundPhotoData.key
-      const satellitePhotoKey = satellitePhotoData.key
-
-      // Update user in local storage
-      if (user) {
+      // Update user verification status
+      const storedUser = localStorage.getItem("carbon-credits-user")
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser)
         const updatedUser = {
-          ...user,
-          onboardingComplete: true,
-          verificationStatus: "pending",
-          groundPhotoKey,
-          satellitePhotoKey,
+          ...parsedUser,
+          verification_status: "Pending",
+          ground_photo_url: signedUrls.ground_photo_url,
+          aerial_photo_url: signedUrls.aerial_photo_url,
         }
-
+        
         localStorage.setItem("carbon-credits-user", JSON.stringify(updatedUser))
       }
 
@@ -123,6 +92,28 @@ export function OnboardingForm() {
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const uploadToS3 = async (file: File, signedUrl: string) => {
+    try {
+      const response = await fetch(signedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+          "x-amz-acl": "public-read",
+        },
+        body: file,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to upload to S3")
+      }
+
+      return true
+    } catch (error) {
+      console.error("Error uploading to S3:", error)
+      throw error
     }
   }
 
