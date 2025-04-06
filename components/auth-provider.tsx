@@ -58,18 +58,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const publicRoutes = ["/", "/auth/signin"]
       const isPublicRoute = publicRoutes.includes(pathname)
 
-      if (!user && !isPublicRoute) {
-        router.push("/auth/signin")
-      } else if (user && !user.onboardingComplete && pathname !== "/onboarding") {
-        router.push("/onboarding")
-      } else if (
-        user &&
-        user.onboardingComplete &&
-        user.verificationStatus === "pending" &&
-        pathname !== "/verification-pending"
-      ) {
-        router.push("/verification-pending")
-      }
+      // TODO: Implement here
+      // if (!user && !isPublicRoute) {
+      //   router.push("/auth/signin")
+      // } else if (user && !user.onboardingComplete && pathname !== "/onboarding") {
+      //   router.push("/onboarding")
+      // } else if (
+      //   user &&
+      //   user.onboardingComplete &&
+      //   user.verificationStatus === "pending" &&
+      //   pathname !== "/verification-pending"
+      // ) {
+      //   router.push("/verification-pending")
+      // }
     }
   }, [user, isLoading, pathname, router])
 
